@@ -1,202 +1,171 @@
-import React from 'react';
-import { Trophy, Award, Zap } from 'lucide-react';
+import { Trophy } from 'lucide-react';
+import PageHeader from './PageHeader';
+import Crest from './Crest';
+import { MiniFixture } from './MatchCard';
+import { formatDay, formatTime, matchState } from '../utils/format';
 
-export default function TournamentBracket({ matches, onSelectMatch }) {
-  const groupAMatches = matches.filter(m => m.stage === 'GroupA');
-  const groupBMatches = matches.filter(m => m.stage === 'GroupB');
-
-  const renderMatchRow = (m) => (
-    <div 
-      key={m.id} 
-      onClick={() => onSelectMatch(m)}
-      style={{
-        padding: '10px 14px',
-        background: 'var(--bg-surface)',
-        borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--border-subtle)',
-        cursor: 'pointer',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        transition: 'border-color 0.2s'
-      }}
-      onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--border-active)'}
-      onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
-    >
-      <div style={{ fontSize: '0.85rem' }}>
-        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{m.team1Name}</div>
-        <div style={{ color: 'var(--text-secondary)' }}>{m.team2Name}</div>
+function GroupCard({ group, rows }) {
+  return (
+    <div className="card bracket-group">
+      <div className="card__head">
+        <h3 className="card__title">Groupe {group}</h3>
+        <span className="card__meta" style={{ color: 'var(--on-inverse-muted)' }}>Pts</span>
       </div>
-      <div style={{ textAlign: 'right', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
-        {m.status === 'Completed' ? (
-          <span style={{ color: 'var(--text-primary)' }}>{m.team1TotalGoals} - {m.team2TotalGoals}</span>
-        ) : (
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.73rem' }}>À venir</span>
-        )}
-      </div>
+      {rows.length === 0 && <div className="empty">Classement à venir</div>}
+      {rows.map((t, i) => (
+        <div key={t.teamId} className={`bracket-row ${i < 2 ? 'is-qualified' : ''}`}>
+          <span className={`rank ${i < 2 ? 'is-qualified' : ''}`}>{i + 1}</span>
+          <Crest name={t.teamName} color={t.colorHex} size={24} />
+          <span className="bracket-row__name">{t.teamName}</span>
+          <strong>{t.points}</strong>
+        </div>
+      ))}
     </div>
   );
+}
+
+function Slot({ seed, team, color, score, winner }) {
+  return (
+    <div className="slot">
+      {team ? <Crest name={team} color={color} size={24} /> : <span className="slot__placeholder" />}
+      <div style={{ minWidth: 0 }}>
+        <div className="slot__seed">{seed}</div>
+        <div className={`slot__team ${team ? '' : 'is-tbd'}`}>{team || 'À déterminer'}</div>
+      </div>
+      <span className="slot__score" style={winner ? { color: 'var(--text-primary)' } : undefined}>{score ?? '–'}</span>
+    </div>
+  );
+}
+
+function matchSlots(match, fallback) {
+  if (!match) return fallback.map(f => ({ ...f }));
+  const played = matchState(match) !== 'next';
+  return [
+    { seed: fallback[0].seed, team: match.team1Name, color: match.team1ColorHex, score: played ? match.team1TotalGoals : null, winner: match.winnerTeamId === match.team1Id },
+    { seed: fallback[1].seed, team: match.team2Name, color: match.team2ColorHex, score: played ? match.team2TotalGoals : null, winner: match.winnerTeamId === match.team2Id }
+  ];
+}
+
+function SemiCard({ title, match, fallback, onSelect }) {
+  const slots = matchSlots(match, fallback);
+  return (
+    <button
+      type="button"
+      className="card bracket-match"
+      style={{ textAlign: 'left', cursor: match ? 'pointer' : 'default' }}
+      onClick={() => match && onSelect(match)}
+    >
+      <div className="card__head">
+        <span className="tag" style={{ background: 'transparent', padding: 0 }}>{title}</span>
+        <span className="card__meta">{match ? `${formatDay(match.scheduledDate)} · ${formatTime(match.scheduledDate)}` : 'À programmer'}</span>
+      </div>
+      {slots.map((s, i) => <Slot key={i} {...s} />)}
+    </button>
+  );
+}
+
+const pick = (rows, i) => rows[i] ? { team: rows[i].teamName, color: rows[i].colorHex } : {};
+
+export default function TournamentBracket({ matches, standings, onSelectMatch }) {
+  const A = standings?.A || [];
+  const B = standings?.B || [];
+  const semis = matches.filter(m => m.stage === 'SemiFinal').sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+  const final = matches.find(m => m.stage === 'Final');
+  const third = matches.find(m => m.stage === 'ThirdPlace');
+
+  const semi1Fallback = [{ seed: '1er Groupe A', ...pick(A, 0) }, { seed: '2e Groupe B', ...pick(B, 1) }];
+  const semi2Fallback = [{ seed: '1er Groupe B', ...pick(B, 0) }, { seed: '2e Groupe A', ...pick(A, 1) }];
+
+  const finalSlots = matchSlots(final, [{ seed: 'Vainqueur DF 1' }, { seed: 'Vainqueur DF 2' }]);
+  const thirdSlots = matchSlots(third, [{ seed: 'Perdant DF 1' }, { seed: 'Perdant DF 2' }]);
+
+  const byStage = (stage) => matches.filter(m => m.stage === stage).sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 24px 60px' }}>
-      {/* Title */}
-      <div style={{ marginBottom: '36px', textAlign: 'center' }}>
-        <div className="section-label">
-          <Zap size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-          Arbre Officiel du Tournoi
-        </div>
-        <h2 className="section-title">
-          Structure des <em>8 Équipes</em>
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto', fontSize: '0.95rem' }}>
-          De la phase de poules aux demi-finales croisées jusqu'à la consécration finale.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        kicker="Phase finale"
+        title="Tableau final"
+        subtitle="Les deux premiers de chaque groupe s’affrontent en demi-finales croisées."
+      />
 
-      {/* Bracket Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '20px',
-        alignItems: 'start'
-      }}>
-        {/* Groups */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="card" style={{ padding: '20px', borderTop: '3px solid var(--color-primary)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase' }}>
-                Poule A
-              </h3>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)' }}>Top 2 Qualifiés</span>
+      <section className="section">
+        <div className="container" style={{ overflowX: 'auto' }}>
+          <div className="bracket">
+            <GroupCard group="A" rows={A} />
+            <span className="bracket__conn" />
+            <SemiCard title="Demi-finale 1" match={semis[0]} fallback={semi1Fallback} onSelect={onSelectMatch} />
+            <span className="bracket__conn" />
+            <div className="bracket__finals">
+              <button
+                type="button"
+                className="final-card"
+                onClick={() => final && onSelectMatch(final)}
+                style={{ cursor: final ? 'pointer' : 'default' }}
+              >
+                <Trophy size={40} color="var(--card-yellow)" />
+                <span className="eyebrow">Grande finale</span>
+                <span className="display" style={{ fontSize: 28 }}>
+                  {final?.winnerName ? `${final.winnerName} champion` : 'Le champion PhyGital'}
+                </span>
+                {finalSlots.map((s, i) => (
+                  <span key={i} className="final-card__team">
+                    <span style={{ opacity: s.team ? 1 : 0.6 }}>{s.team || s.seed}</span>
+                    <strong>{s.score ?? '–'}</strong>
+                  </span>
+                ))}
+                <span style={{ fontSize: 12, color: 'var(--on-inverse-muted)' }}>
+                  {final ? `${formatDay(final.scheduledDate)} · ${formatTime(final.scheduledDate)}` : 'Date à confirmer'}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="card bracket-match"
+                style={{ width: 240, textAlign: 'left', cursor: third ? 'pointer' : 'default' }}
+                onClick={() => third && onSelectMatch(third)}
+              >
+                <div className="card__head">
+                  <span className="tag" style={{ background: 'transparent', padding: 0 }}>Petite finale</span>
+                  <span className="card__meta">3e place</span>
+                </div>
+                {thirdSlots.map((s, i) => <Slot key={i} {...s} />)}
+              </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {groupAMatches.map(renderMatchRow)}
-            </div>
+            <span className="bracket__conn" />
+            <SemiCard title="Demi-finale 2" match={semis[1]} fallback={semi2Fallback} onSelect={onSelectMatch} />
+            <span className="bracket__conn" />
+            <GroupCard group="B" rows={B} />
           </div>
 
-          <div className="card" style={{ padding: '20px', borderTop: '3px solid var(--color-secondary)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '1.1rem', color: 'var(--color-secondary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase' }}>
-                Poule B
-              </h3>
-              <span className="badge" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)' }}>Top 2 Qualifiés</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {groupBMatches.map(renderMatchRow)}
-            </div>
-          </div>
-        </div>
-
-        {/* Semi-Finals */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="card" style={{ padding: '20px', borderTop: '3px solid var(--color-accent)' }}>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--color-accent)', marginBottom: '16px', fontFamily: 'var(--font-display)', textTransform: 'uppercase' }}>
-              Demi-Finales Croisées
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{
-                padding: '14px',
-                background: 'var(--bg-surface)',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-subtle)'
-              }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Demi-Finale 1 — 1er A vs 2e B
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)', padding: '3px 0', fontSize: '0.9rem' }}>
-                  <span>1er Groupe A</span>
-                  <span style={{ color: 'var(--text-muted)' }}>—</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', padding: '3px 0', fontSize: '0.9rem' }}>
-                  <span>2e Groupe B</span>
-                  <span style={{ color: 'var(--text-muted)' }}>—</span>
-                </div>
-              </div>
-
-              <div style={{
-                padding: '14px',
-                background: 'var(--bg-surface)',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-subtle)'
-              }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Demi-Finale 2 — 1er B vs 2e A
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)', padding: '3px 0', fontSize: '0.9rem' }}>
-                  <span>1er Groupe B</span>
-                  <span style={{ color: 'var(--text-muted)' }}>—</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', padding: '3px 0', fontSize: '0.9rem' }}>
-                  <span>2e Groupe A</span>
-                  <span style={{ color: 'var(--text-muted)' }}>—</span>
-                </div>
-              </div>
-            </div>
+          <div className="bracket-legend">
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className="legend__swatch" />Qualifiés</span>
+            <span>Score cumulé terrain + console · Tirs au but en cas d’égalité</span>
           </div>
         </div>
+      </section>
 
-        {/* Final & 3rd Place */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Final */}
-          <div className="card" style={{ 
-            padding: '28px', 
-            textAlign: 'center',
-            borderTop: '3px solid var(--color-gold)'
-          }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              background: 'var(--color-gold-muted)',
-              border: '2px solid var(--color-gold)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 14px'
-            }}>
-              <Trophy size={22} color="var(--color-gold)" />
+      <section className="section section--surface">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-head__titles">
+              <span className="kicker">Phase de groupes</span>
+              <h2 className="section-title">Résultats des groupes</h2>
             </div>
-            <span className="badge" style={{ background: 'var(--color-gold-muted)', color: 'var(--color-gold)', marginBottom: '10px' }}>
-              Grande Finale
-            </span>
-            <h3 style={{ fontSize: '1.3rem', marginBottom: '16px', color: 'var(--text-primary)', fontFamily: 'var(--font-display)', textTransform: 'uppercase' }}>
-              Titre PhyGital Champion
-            </h3>
-            <div style={{
-              padding: '16px',
-              background: 'var(--bg-surface)',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-subtle)',
-              marginBottom: '12px'
-            }}>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: '8px', textTransform: 'uppercase' }}>
-                Vainqueur SF 1 vs Vainqueur SF 2
-              </div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                À Déterminer
-              </div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '4px 0' }}>vs</div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                À Déterminer
-              </div>
-            </div>
-            <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-              Manche Gazon 15m + Match E-Sport 12m + TAB si égalité
-            </span>
           </div>
-
-          {/* 3rd place */}
-          <div className="card" style={{ padding: '18px', textAlign: 'center' }}>
-            <span className="badge" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', marginBottom: '8px' }}>
-              <Award size={11} style={{ marginRight: '4px' }} />
-              Petite Finale (3ème Place)
-            </span>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-              Perdant SF 1 vs Perdant SF 2
-            </div>
+          <div className="group-matches">
+            {['GroupA', 'GroupB'].map(stage => (
+              <div key={stage} className="card">
+                <div className="card__head">
+                  <h3 className="card__title">{stage === 'GroupA' ? 'Groupe A' : 'Groupe B'}</h3>
+                  <span className="card__meta">{byStage(stage).length} rencontres</span>
+                </div>
+                {byStage(stage).length === 0 && <div className="empty">Aucune rencontre</div>}
+                {byStage(stage).map(m => <MiniFixture key={m.id} match={m} onSelect={onSelectMatch} />)}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </>
   );
 }

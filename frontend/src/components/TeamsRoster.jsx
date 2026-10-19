@@ -1,127 +1,170 @@
-import React, { useState } from 'react';
-import { Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Search, User } from 'lucide-react';
+import PageHeader from './PageHeader';
+import Crest from './Crest';
+import { aggregatePlayerStats, colorFor, positionKey, positionLabel } from '../utils/format';
 
-export default function TeamsRoster({ teams }) {
-  const [selectedGroup, setSelectedGroup] = useState('ALL');
+const POSITION_ORDER = { Goalkeeper: 0, Defender: 1, Midfielder: 2, Forward: 3 };
 
-  const filteredTeams = selectedGroup === 'ALL' 
-    ? teams 
-    : teams.filter(t => t.group === selectedGroup);
+function PlayerCard({ player, color, stats }) {
+  const s = stats || { physicalGoals: 0, digitalGoals: 0, assists: 0, yellowCards: 0, redCards: 0 };
+  return (
+    <article className="card">
+      <div className="player-card__photo" style={{ background: `linear-gradient(160deg, ${color}, #0b1b2b)` }}>
+        {player.photoUrl ? (
+          <img src={player.photoUrl} alt={player.name} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+        ) : (
+          <User size={120} strokeWidth={1} style={{ position: 'absolute', right: 8, bottom: -8, opacity: 0.35 }} />
+        )}
+        <span className="player-card__number">{player.jerseyNumber}</span>
+      </div>
+      <div className="player-card__info">
+        <div>
+          <div className="player-card__name">{player.name}</div>
+          <div className="player-card__role">{positionLabel(player.position)}</div>
+        </div>
+        <div className="player-card__stats">
+          <div className="mini-stat"><strong className="c-phys">{s.physicalGoals}</strong><span>Buts terrain</span></div>
+          <div className="mini-stat"><strong className="c-dig">{s.digitalGoals}</strong><span>Buts console</span></div>
+          <div className="mini-stat"><strong>{s.assists}</strong><span>Passes D.</span></div>
+          <div className="mini-stat">
+            <strong className="cards-count" style={{ fontSize: 16 }}>
+              <span><span className="card-chip" />{s.yellowCards}</span>
+              {s.redCards > 0 && <span><span className="card-chip card-chip--red" />{s.redCards}</span>}
+            </strong>
+            <span>Cartons</span>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
 
-  const getPositionBadge = (pos) => {
-    const posStyles = {
-      Goalkeeper: { bg: 'var(--color-warning-muted)', color: '#eab308', label: 'Gardien' },
-      0: { bg: 'var(--color-warning-muted)', color: '#eab308', label: 'Gardien' },
-      Defender: { bg: 'var(--color-secondary-muted)', color: '#60a5fa', label: 'Défenseur' },
-      1: { bg: 'var(--color-secondary-muted)', color: '#60a5fa', label: 'Défenseur' },
-      Midfielder: { bg: 'var(--color-success-muted)', color: '#4ade80', label: 'Milieu' },
-      2: { bg: 'var(--color-success-muted)', color: '#4ade80', label: 'Milieu' },
-      Forward: { bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', label: 'Attaquant' },
-      3: { bg: 'rgba(239, 68, 68, 0.12)', color: '#f87171', label: 'Attaquant' }
-    };
-    const s = posStyles[pos] || { bg: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', label: 'Joueur' };
-    return <span className="badge" style={{ background: s.bg, color: s.color }}>{s.label}</span>;
-  };
+export default function TeamsRoster({ teams, standings, matches = [] }) {
+  const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+
+  const standingByTeam = useMemo(() => {
+    const map = new Map();
+    for (const g of ['A', 'B']) (standings?.[g] || []).forEach((r, i) => map.set(r.teamId, { ...r, rank: i + 1 }));
+    return map;
+  }, [standings]);
+
+  const playerStats = useMemo(() => aggregatePlayerStats(matches), [matches]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = teams.filter(t =>
+    !q || t.name.toLowerCase().includes(q) || (t.players || []).some(p => p.name.toLowerCase().includes(q))
+  );
+
+  const selected =
+    teams.find(t => t.id === selectedId) ||
+    filtered.find(t => (t.players || []).length > 0) ||
+    filtered[0] ||
+    teams[0];
+  const selectedStanding = selected ? standingByTeam.get(selected.id) : null;
+  const roster = [...(selected?.players || [])].sort(
+    (a, b) => (POSITION_ORDER[positionKey(a.position)] ?? 9) - (POSITION_ORDER[positionKey(b.position)] ?? 9) || a.jerseyNumber - b.jerseyNumber
+  );
+
+  const teamGoals = roster.reduce((sum, p) => {
+    const s = playerStats.get(p.id);
+    return sum + (s ? s.physicalGoals + s.digitalGoals : 0);
+  }, 0);
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px 24px 60px' }}>
-      {/* Title */}
-      <div style={{ marginBottom: '32px', textAlign: 'center' }}>
-        <div className="section-label">
-          <Users size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-          Franchises Participantes
-        </div>
-        <h2 className="section-title">
-          Les 8 Équipes du <em>Tournoi</em>
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-          Découvrez les effectifs d'athlètes hybrides concourant à la fois sur pelouse et sur console.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        kicker={`${teams.length} équipes · 2 groupes`}
+        title="Équipes & joueurs"
+        subtitle="Des athlètes hybrides, aussi à l’aise sur la pelouse que manette en main."
+      >
+        <label className="search">
+          <Search size={18} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher une équipe ou un joueur" />
+        </label>
+      </PageHeader>
 
-      {/* Filter */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '28px' }}>
-        <button onClick={() => setSelectedGroup('ALL')} className={selectedGroup === 'ALL' ? 'btn-primary' : 'btn-outline'}>
-          Toutes (8)
-        </button>
-        <button onClick={() => setSelectedGroup('A')} className={selectedGroup === 'A' ? 'btn-primary' : 'btn-outline'}>
-          Poule A
-        </button>
-        <button onClick={() => setSelectedGroup('B')} className={selectedGroup === 'B' ? 'btn-secondary' : 'btn-outline'}>
-          Poule B
-        </button>
-      </div>
-
-      {/* Teams Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-        {filteredTeams.map(team => (
-          <div 
-            key={team.id}
-            className="card"
-            style={{
-              padding: '24px',
-              borderTop: `3px solid ${team.colorHex || 'var(--color-primary)'}`,
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-          >
-            {/* Team Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '18px' }}>
-              <div style={{
-                width: '50px',
-                height: '50px',
-                borderRadius: '50%',
-                border: `2px solid ${team.colorHex || 'var(--border-active)'}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--bg-elevated)',
-                overflow: 'hidden'
-              }}>
-                {team.logoUrl ? (
-                  <img src={team.logoUrl} alt="" style={{ height: '30px', objectFit: 'contain' }} />
-                ) : (
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: team.colorHex || 'var(--text-primary)', fontSize: '1.1rem' }}>
-                    {team.name.substring(0, 2).toUpperCase()}
-                  </span>
-                )}
+      <section className="section">
+        <div className="container">
+          {filtered.length === 0 && <div className="card empty">Aucun résultat pour « {query} ».</div>}
+          {['A', 'B'].map(group => {
+            const list = filtered.filter(t => t.group === group);
+            if (list.length === 0) return null;
+            return (
+              <div key={group}>
+                <h3 className="group-label kicker">Groupe {group}</h3>
+                <div className="team-grid">
+                  {list.map(t => {
+                    const st = standingByTeam.get(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`card team-tile ${selected?.id === t.id ? 'is-selected' : ''}`}
+                        style={{ '--team': colorFor(t.colorHex, t.name) }}
+                        onClick={() => setSelectedId(t.id)}
+                      >
+                        <Crest name={t.name} color={t.colorHex} size={44} />
+                        <div style={{ minWidth: 0 }}>
+                          <div className="team-tile__name">{t.name}</div>
+                          <div className="team-tile__meta">{(t.players || []).length} joueurs</div>
+                        </div>
+                        {st && <span className="team-tile__pts">{st.points} pts</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div>
-                <h3 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)', fontWeight: 700, textTransform: 'uppercase' }}>
-                  {team.name}
-                </h3>
-                <span className="badge" style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Groupe {team.group}
-                </span>
+            );
+          })}
+        </div>
+      </section>
+
+      {selected && (
+        <section className="section section--surface">
+          <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <div className="team-banner" style={{ '--team': colorFor(selected.colorHex, selected.name) }}>
+              <Crest name={selected.name} color={selected.colorHex} size={88} />
+              <div className="team-banner__id">
+                <span className="eyebrow">Groupe {selected.group}</span>
+                <h2 className="display team-banner__name">{selected.name}</h2>
+              </div>
+              <div className="team-banner__stats">
+                {[
+                  [selectedStanding ? `${selectedStanding.rank}${selectedStanding.rank === 1 ? 'er' : 'e'}` : '–', 'Classement'],
+                  [selectedStanding?.points ?? 0, 'Points'],
+                  [selectedStanding?.goalsFor ?? teamGoals, 'Buts marqués'],
+                  [roster.length, 'Joueurs']
+                ].map(([value, label], i) => (
+                  <div key={label} style={{ display: 'contents' }}>
+                    {i > 0 && <span className="team-banner__divider" />}
+                    <div className="team-banner__stat"><strong>{value}</strong><span>{label}</span></div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Roster */}
-            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.05em', fontWeight: 600 }}>
-                Joueurs inscrits
-              </div>
-              {team.players && team.players.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {team.players.map(p => (
-                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                        {p.jerseyNumber && <span style={{ color: 'var(--text-muted)', marginRight: '6px' }}>#{p.jerseyNumber}</span>}
-                        {p.name}
-                      </span>
-                      {getPositionBadge(p.position)}
-                    </div>
-                  ))}
+            <div>
+              <div className="section-head" style={{ marginBottom: 24 }}>
+                <div className="section-head__titles">
+                  <span className="kicker">Effectif</span>
+                  <h2 className="section-title section-title--sm">Les joueurs</h2>
                 </div>
+              </div>
+              {roster.length === 0 ? (
+                <div className="card empty">Effectif en cours de confirmation.</div>
               ) : (
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  Effectif de 4 athlètes confirmés pour le coup d'envoi.
+                <div className="roster">
+                  {roster.map(p => (
+                    <PlayerCard key={p.id} player={p} color={colorFor(selected.colorHex, selected.name)} stats={playerStats.get(p.id)} />
+                  ))}
                 </div>
               )}
             </div>
           </div>
-        ))}
-      </div>
-    </div>
+        </section>
+      )}
+    </>
   );
 }

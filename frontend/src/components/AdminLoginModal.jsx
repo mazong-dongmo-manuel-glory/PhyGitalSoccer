@@ -1,167 +1,80 @@
-import React, { useState } from 'react';
-import { Lock, Key, ShieldCheck, X } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Brand } from './Navbar';
+import { loginAdmin } from '../services/api';
 
 export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }) {
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Default PIN: 1234 or admin
-    if (pin === '1234' || pin.toLowerCase() === 'admin') {
-      setError('');
-      setPin('');
+    if (!password) {
+      setError('Saisissez le mot de passe administrateur.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await loginAdmin(password);
+      setPassword('');
       onLoginSuccess();
-    } else {
-      setError('Code PIN incorrect. Utilisez 1234 pour le mode démo.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div 
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        backgroundColor: 'rgba(5, 8, 16, 0.88)',
-        backdropFilter: 'blur(12px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px'
-      }}
-    >
-      <div 
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '440px',
-          backgroundColor: 'var(--bg-elevated)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--border-active)',
-          padding: '32px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7)',
-          position: 'relative'
-        }}
-      >
-        <button 
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '20px',
-            right: '20px',
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer'
-          }}
-        >
-          <X size={20} />
-        </button>
-
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '50%',
-            backgroundColor: 'rgba(232, 21, 92, 0.15)',
-            border: '2px solid var(--color-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px',
-            color: 'var(--color-primary)'
-          }}>
-            <Lock size={26} />
-          </div>
-
-          <h3 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.4rem',
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            marginBottom: '8px',
-            color: 'var(--text-primary)'
-          }}>
-            Connexion Administrateur
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.5 }}>
-            Entrez votre code PIN pour accéder au Dashboard de gestion du tournoi.
+    <div className="login-screen" role="dialog" aria-modal="true">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <Brand onClick={onClose} subtitle="Espace organisateur" />
+        <div>
+          <h1 className="display" style={{ fontSize: 40 }}>Connexion</h1>
+          <p className="muted" style={{ fontSize: 15, marginTop: 8 }}>
+            Accès réservé aux organisateurs et arbitres du tournoi.
           </p>
         </div>
-
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: 'var(--text-secondary)',
-              marginBottom: '8px'
-            }}>
-              Code PIN Administrateur
-            </label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="password"
-                maxLength={8}
-                placeholder="Ex: 1234"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                autoFocus
-                style={{
-                  width: '100%',
-                  padding: '12px 16px 12px 42px',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--text-primary)',
-                  fontSize: '1.1rem',
-                  letterSpacing: '0.2em',
-                  fontFamily: 'monospace'
-                }}
-              />
-              <Key size={18} style={{
-                position: 'absolute',
-                left: '14px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)'
-              }} />
-            </div>
-            {error && (
-              <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '8px', fontWeight: 500 }}>
-                {error}
-              </div>
-            )}
+        <label className="field field--strong">
+          <span>Mot de passe administrateur</span>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="input input--lg"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              placeholder="••••••••••"
+              style={{ paddingRight: 48 }}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(s => !s)}
+              aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', display: 'grid' }}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
-
-          <button 
-            type="submit" 
-            className="btn-primary" 
-            style={{ width: '100%', padding: '12px', justifyContent: 'center', marginBottom: '14px' }}
-          >
-            <ShieldCheck size={18} /> Déverrouiller le Dashboard
-          </button>
-
-          <button 
-            type="button" 
-            onClick={() => {
-              setPin('1234');
-              onLoginSuccess();
-            }}
-            className="btn-outline" 
-            style={{ width: '100%', padding: '10px', justifyContent: 'center', fontSize: '0.8rem' }}
-          >
-            Mode Démo Rapide (PIN: 1234)
-          </button>
-        </form>
-      </div>
+        </label>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <button type="submit" className="btn btn--primary btn--block" disabled={loading}>
+          {loading ? 'Vérification…' : <>Se connecter <ArrowRight size={18} /></>}
+        </button>
+        <div className="security-note">
+          <ShieldCheck size={18} style={{ flexShrink: 0 }} />
+          <span>Session sécurisée de 12 h. Toutes les modifications sont publiées immédiatement sur le site public.</span>
+        </div>
+      </form>
+      <button type="button" className="link-arrow" onClick={onClose}>
+        <ArrowLeft size={16} /> Retour au site public
+      </button>
     </div>
   );
 }

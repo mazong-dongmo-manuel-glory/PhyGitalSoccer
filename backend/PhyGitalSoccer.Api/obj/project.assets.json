@@ -2460,7 +2460,7 @@
     ]
   },
   "packageFolders": {
-    "/Users/ndongmo/.nuget/packages/": {}
+    "/var/folders/tt/rk3_rt0n0799lbwt0n8wts0r0000gn/T/cursor-sandbox-cache/c11314756d5dffa14d2d7524597ceda9/nuget": {}
   },
   "project": {
     "version": "1.0.0",
@@ -2468,7 +2468,7 @@
       "projectUniqueName": "/Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/PhyGitalSoccer.Api.csproj",
       "projectName": "PhyGitalSoccer.Api",
       "projectPath": "/Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/PhyGitalSoccer.Api.csproj",
-      "packagesPath": "/Users/ndongmo/.nuget/packages/",
+      "packagesPath": "/var/folders/tt/rk3_rt0n0799lbwt0n8wts0r0000gn/T/cursor-sandbox-cache/c11314756d5dffa14d2d7524597ceda9/nuget",
       "outputPath": "/Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhyGitalSoccer.Api.Data;
+using PhyGitalSoccer.Api.Services;
 using PhyGitalSoccer.Api.Models;
 
 namespace PhyGitalSoccer.Api.Controllers;
@@ -10,10 +11,12 @@ namespace PhyGitalSoccer.Api.Controllers;
 public class GalleryController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly UploadStorage _storage;
 
-    public GalleryController(AppDbContext context)
+    public GalleryController(AppDbContext context, UploadStorage storage)
     {
         _context = context;
+        _storage = storage;
     }
 
     [HttpGet]
@@ -25,6 +28,7 @@ public class GalleryController : ControllerBase
         return Ok(items);
     }
 
+    [AdminOnly]
     [HttpPost]
     public async Task<ActionResult<GalleryItem>> AddGalleryItem(GalleryItem item)
     {
@@ -33,6 +37,7 @@ public class GalleryController : ControllerBase
         return Ok(item);
     }
 
+    [AdminOnly]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteGalleryItem(Guid id)
     {
@@ -41,6 +46,7 @@ public class GalleryController : ControllerBase
 
         _context.GalleryItems.Remove(item);
         await _context.SaveChangesAsync();
+        _storage.TryDelete(item.Url);
         return NoContent();
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using PhyGitalSoccer.Api.Enums;
 using PhyGitalSoccer.Api.Models;
 
@@ -8,6 +9,18 @@ public static class DbInitializer
     public static void Initialize(AppDbContext context)
     {
         context.Database.EnsureCreated();
+
+        // EnsureCreated never alters an existing database, so tables added to the model later must be created here.
+        context.Database.ExecuteSqlRaw("""
+            CREATE TABLE IF NOT EXISTS "GalleryItems" (
+                "Id" TEXT NOT NULL CONSTRAINT "PK_GalleryItems" PRIMARY KEY,
+                "Title" TEXT NOT NULL,
+                "Url" TEXT NOT NULL,
+                "Type" TEXT NOT NULL,
+                "Category" TEXT NOT NULL,
+                "DateAdded" TEXT NOT NULL
+            );
+            """);
 
         if (context.Teams.Any())
         {
@@ -52,7 +65,7 @@ public static class DbInitializer
             Stage = MatchStage.GroupA,
             Status = MatchStatus.Completed,
             ScheduledDate = DateTime.UtcNow.AddDays(-1),
-            Venue = "Phygital Arena 1 - Montréal",
+            Venue = "Phygital Arena 1 - Trois-Rivières",
             Team1Id = team1.Id,
             Team2Id = team2.Id
         };

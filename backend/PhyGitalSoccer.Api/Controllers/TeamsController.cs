@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhyGitalSoccer.Api.Data;
+using PhyGitalSoccer.Api.Services;
 using PhyGitalSoccer.Api.Models;
 
 namespace PhyGitalSoccer.Api.Controllers;
@@ -38,6 +39,7 @@ public class TeamsController : ControllerBase
         return team;
     }
 
+    [AdminOnly]
     [HttpPost]
     public async Task<ActionResult<Team>> CreateTeam(Team team)
     {
@@ -46,6 +48,7 @@ public class TeamsController : ControllerBase
         return CreatedAtAction(nameof(GetTeam), new { id = team.Id }, team);
     }
 
+    [AdminOnly]
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateTeam(Guid id, Team updated)
     {
@@ -62,6 +65,7 @@ public class TeamsController : ControllerBase
         return NoContent();
     }
 
+    [AdminOnly]
     [HttpPost("{id}/players")]
     public async Task<ActionResult<Player>> AddPlayer(Guid id, Player player)
     {
@@ -75,6 +79,7 @@ public class TeamsController : ControllerBase
         return Ok(player);
     }
 
+    [AdminOnly]
     [HttpPut("players/{playerId}")]
     public async Task<IActionResult> UpdatePlayer(Guid playerId, Player updated)
     {
@@ -95,6 +100,7 @@ public class TeamsController : ControllerBase
         return NoContent();
     }
 
+    [AdminOnly]
     [HttpDelete("players/{playerId}")]
     public async Task<IActionResult> DeletePlayer(Guid playerId)
     {
@@ -106,6 +112,7 @@ public class TeamsController : ControllerBase
         return NoContent();
     }
 
+    [AdminOnly]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteTeam(Guid id)
     {

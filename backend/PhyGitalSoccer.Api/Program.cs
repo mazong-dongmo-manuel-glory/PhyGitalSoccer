@@ -1,7 +1,16 @@
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using PhyGitalSoccer.Api.Data;
 using PhyGitalSoccer.Api.Services;
+
+// `dotnet run -- hash-password <password>` prints a value for Admin:PasswordHash.
+if (args.Length == 2 && args[0] is "hash-password" or "--hash-password")
+{
+    Console.WriteLine(AdminAuthService.HashPassword(args[1]));
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +20,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Register Services
 builder.Services.AddScoped<TournamentService>();
+builder.Services.AddSingleton<AdminAuthService>();
+builder.Services.AddSingleton<UploadStorage>();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
+});
 
 // CORS configuration for React frontend
 builder.Services.AddCors(options =>
@@ -48,6 +67,15 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(app.Services.GetRequiredService<UploadStorage>().Directory),
+    RequestPath = UploadStorage.RequestPath,
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.XContentTypeOptions = "nosniff"
+});
+
+app.UseRateLimiter();
 
 app.UseAuthorization();
 

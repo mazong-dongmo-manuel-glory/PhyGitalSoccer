@@ -145,3 +145,5 @@
 /Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/obj/Debug/net10.0/PhyGitalSoccer.Api.pdb
 /Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/obj/Debug/net10.0/PhyGitalSoccer.Api.genruntimeconfig.cache
 /Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/obj/Debug/net10.0/ref/PhyGitalSoccer.Api.dll
+/Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/obj/Debug/net10.0/PhyGitalSoccer.Api.sourcelink.json
+/Users/ndongmo/Documents/code/PhyGitalSoccer/backend/PhyGitalSoccer.Api/bin/Debug/net10.0/PhyGitalSoccer.Api.staticwebassets.runtime.json

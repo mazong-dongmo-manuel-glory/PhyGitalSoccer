@@ -62,6 +62,7 @@ public class MatchesController : ControllerBase
         return Ok(_tournamentService.MapToMatchDetailDto(match));
     }
 
+    [AdminOnly]
     [HttpPost]
     public async Task<ActionResult<MatchDetailDto>> CreateMatch(Match match)
     {
@@ -78,6 +79,7 @@ public class MatchesController : ControllerBase
         return CreatedAtAction(nameof(GetMatch), new { id = match.Id }, _tournamentService.MapToMatchDetailDto(created));
     }
 
+    [AdminOnly]
     [HttpPut("{id}/sheet")]
     public async Task<ActionResult<MatchDetailDto>> UpdateMatchSheet(Guid id, [FromBody] MatchSheetUpdateDto sheet)
     {

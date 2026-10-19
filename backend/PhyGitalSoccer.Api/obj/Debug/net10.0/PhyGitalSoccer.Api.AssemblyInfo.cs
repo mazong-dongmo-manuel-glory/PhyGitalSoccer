@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PhyGitalSoccer.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8f7730e589ec39c32d0f8adc14c5c36d2a3b28c2")]
 [assembly: System.Reflection.AssemblyProductAttribute("PhyGitalSoccer.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PhyGitalSoccer.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

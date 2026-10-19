@@ -18,7 +18,7 @@ const FALLBACK_MATCHES = [
     stage: 'GroupA',
     status: 'Completed',
     scheduledDate: new Date(Date.now() - 86400000).toISOString(),
-    venue: 'Phygital Arena Montréal - Terrain 1',
+    venue: 'Phygital Arena Trois-Rivières - Terrain 1',
     team1Id: '1',
     team1Name: 'PhygyTal Maple P',
     team1ColorHex: '#FF007F',
@@ -53,7 +53,7 @@ const FALLBACK_MATCHES = [
     stage: 'GroupA',
     status: 'Scheduled',
     scheduledDate: new Date(Date.now() + 14400000).toISOString(),
-    venue: 'Phygital Arena Montréal - Terrain 2',
+    venue: 'Phygital Arena Trois-Rivières - Terrain 2',
     team1Id: '3',
     team1Name: 'Neo Titans',
     team1ColorHex: '#FFD700',
@@ -72,7 +72,7 @@ const FALLBACK_MATCHES = [
     stage: 'GroupB',
     status: 'Scheduled',
     scheduledDate: new Date(Date.now() + 28800000).toISOString(),
-    venue: 'Phygital Arena Montréal - Terrain 1',
+    venue: 'Phygital Arena Trois-Rivières - Terrain 1',
     team1Id: '5',
     team1Name: 'Apex Predators',
     team1ColorHex: '#A855F7',
@@ -158,17 +158,76 @@ export async function fetchTopScorers() {
   ];
 }
 
-export async function updateMatchSheet(matchId, sheetData) {
-  const res = await fetch(`${API_BASE_URL}/matches/${matchId}/sheet`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sheetData)
-  });
-  if (!res.ok) {
-    throw new Error('Erreur lors de la mise à jour de la feuille de match');
+// Admin authentication
+const TOKEN_KEY = 'phygital_admin_token';
+
+export class AuthError extends Error {}
+
+export function getAdminSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null');
+    if (session?.token && new Date(session.expiresAt) > new Date()) return session;
+  } catch {
+    // corrupted value: treated as logged out
   }
-  return await res.json();
+  localStorage.removeItem(TOKEN_KEY);
+  return null;
 }
+
+export function clearAdminSession() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export async function loginAdmin(password) {
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+  } catch {
+    throw new Error('Serveur injoignable. Vérifiez que le backend est démarré.');
+  }
+  if (res.status === 429) throw new Error('Trop de tentatives. Réessayez dans une minute.');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Connexion impossible.');
+  localStorage.setItem(TOKEN_KEY, JSON.stringify(data));
+  return data;
+}
+
+async function adminRequest(path, { method = 'GET', body } = {}) {
+  const session = getAdminSession();
+  if (!session) throw new AuthError('Session expirée. Reconnectez-vous.');
+
+  const isJson = body !== undefined && !(body instanceof FormData);
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        ...(isJson ? { 'Content-Type': 'application/json' } : {})
+      },
+      body: isJson ? JSON.stringify(body) : body
+    });
+  } catch {
+    throw new Error('Serveur injoignable.');
+  }
+
+  if (res.status === 401) {
+    clearAdminSession();
+    throw new AuthError('Session expirée. Reconnectez-vous.');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.message || `Erreur serveur (${res.status}).`);
+  }
+  return res.status === 204 ? true : res.json().catch(() => true);
+}
+
+export const updateMatchSheet = (matchId, sheetData) =>
+  adminRequest(`/matches/${matchId}/sheet`, { method: 'PUT', body: sheetData });
 
 export async function subscribeNewsletter(email) {
   const res = await fetch(`${API_BASE_URL}/newsletter/subscribe`, {
@@ -180,82 +239,14 @@ export async function subscribeNewsletter(email) {
 }
 
 // Admin Team Management
-export async function createTeam(teamData) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teams`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(teamData)
-    });
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.error('Error creating team:', err);
-  }
-  return { id: Date.now().toString(), ...teamData };
-}
-
-export async function updateTeam(teamId, teamData) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teams/${teamId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(teamData)
-    });
-    if (res.ok) return true;
-  } catch (err) {
-    console.error('Error updating team:', err);
-  }
-  return true;
-}
-
-export async function deleteTeam(teamId) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teams/${teamId}`, { method: 'DELETE' });
-    if (res.ok) return true;
-  } catch (err) {
-    console.error('Error deleting team:', err);
-  }
-  return true;
-}
+export const createTeam = (teamData) => adminRequest('/teams', { method: 'POST', body: teamData });
+export const updateTeam = (teamId, teamData) => adminRequest(`/teams/${teamId}`, { method: 'PUT', body: teamData });
+export const deleteTeam = (teamId) => adminRequest(`/teams/${teamId}`, { method: 'DELETE' });
 
 // Admin Player Management
-export async function addPlayer(teamId, playerData) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teams/${teamId}/players`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(playerData)
-    });
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.error('Error adding player:', err);
-  }
-  return { id: Date.now().toString(), teamId, ...playerData };
-}
-
-export async function updatePlayer(playerId, playerData) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teams/players/${playerId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(playerData)
-    });
-    if (res.ok) return true;
-  } catch (err) {
-    console.error('Error updating player:', err);
-  }
-  return true;
-}
-
-export async function deletePlayer(playerId) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/teams/players/${playerId}`, { method: 'DELETE' });
-    if (res.ok) return true;
-  } catch (err) {
-    console.error('Error deleting player:', err);
-  }
-  return true;
-}
+export const addPlayer = (teamId, playerData) => adminRequest(`/teams/${teamId}/players`, { method: 'POST', body: playerData });
+export const updatePlayer = (playerId, playerData) => adminRequest(`/teams/players/${playerId}`, { method: 'PUT', body: playerData });
+export const deletePlayer = (playerId) => adminRequest(`/teams/players/${playerId}`, { method: 'DELETE' });
 
 // Gallery API
 const FALLBACK_GALLERY = [
@@ -274,27 +265,12 @@ export async function fetchGallery() {
   return FALLBACK_GALLERY;
 }
 
-export async function addGalleryItem(itemData) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/gallery`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(itemData)
-    });
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.error('Error adding gallery item:', err);
-  }
-  return { id: Date.now().toString(), ...itemData };
-}
+export const addGalleryItem = (itemData) => adminRequest('/gallery', { method: 'POST', body: itemData });
+export const deleteGalleryItem = (itemId) => adminRequest(`/gallery/${itemId}`, { method: 'DELETE' });
 
-export async function deleteGalleryItem(itemId) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/gallery/${itemId}`, { method: 'DELETE' });
-    if (res.ok) return true;
-  } catch (err) {
-    console.error('Error deleting gallery item:', err);
-  }
-  return true;
+// Returns { url, type } where type is 'image' or 'video'.
+export function uploadMedia(file) {
+  const form = new FormData();
+  form.append('file', file);
+  return adminRequest('/uploads', { method: 'POST', body: form });
 }
-

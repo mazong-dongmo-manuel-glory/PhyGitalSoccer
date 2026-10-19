@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhyGitalSoccer.Api.Data;
+using PhyGitalSoccer.Api.Services;
 using PhyGitalSoccer.Api.Models;
 
 namespace PhyGitalSoccer.Api.Controllers;
@@ -45,6 +46,7 @@ public class NewsletterController : ControllerBase
         return Ok(new { message = "Merci pour votre inscription à la newsletter PhyGital Soccer !" });
     }
 
+    [AdminOnly]
     [HttpGet("subscribers")]
     public async Task<ActionResult<IEnumerable<NewsletterSubscriber>>> GetSubscribers()
     {
